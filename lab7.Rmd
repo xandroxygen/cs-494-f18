@@ -1,0 +1,124 @@
+---
+title: "Lab 7: Clustering in R"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+```{r}
+iris_data <- subset(datasets::iris, select=c(1:4))
+target <- datasets::iris$Species
+
+get_external_metrics <- function(computed, target) {
+  true_positives <- 0
+  true_negatives <- 0
+  false_positives <- 0
+  false_negatives <- 0 
+  
+  # for every pair of every item
+  for (i in 1:length(target)) {
+    for (j in 1:length(target)) {
+      if (computed[i] == computed[j] && target[i] == target[j]) {
+        true_positives <- true_positives + 1
+      }
+      else if (computed[i] != computed[j] && target[i] != target[j]) {
+        true_negatives <- true_negatives + 1
+      }
+      else if (computed[i] == computed[j] && target[i] != target[j]) {
+        false_positives <- false_positives + 1
+      }
+      else if (computed[i] != computed[j] && target[i] == target[j]) {
+        false_negatives <- false_negatives + 1
+      }
+    }
+  }
+  
+  precision = true_positives / (true_positives + false_positives)
+  recall = true_positives / (true_positives + false_negatives)
+  f_score = (2 * precision * recall) / (precision + recall)
+  return(list(precision=precision, recall=recall, f_score=f_score))
+}
+
+print_metrics <- function(metrics) {
+  cat("\nPrecision:", metrics$precision)
+  cat("\nRecall:", metrics$recall)
+  cat("\nF-score:",metrics$f_score)
+}
+```
+
+
+### Question 3: Kmeans
+
+3a,b. Run kmeans for selected k values and report the cluster size and F-score.
+```{r}
+for (k in c(2,3,4,5,7,9,11)) {
+  clusters <- kmeans(iris_data, k)
+  metrics <- get_external_metrics(clusters$cluster, target)
+  
+  cat("K value:", k)
+  cat("\nCluster sizes:", clusters$size)
+  print_metrics(metrics)
+  cat("\n\n")
+}
+```
+
+3c. The value of `k` that produces the highest F-score is 3, with an F-score of `0.824`.
+
+3d. This is to be expected, since there are 3 original species in the dataset.
+
+
+### Question 4: hclust
+
+4a. Display the result of the `hclust` algorithm as a dendrogram.
+```{r}
+iris_dist <- dist(iris_data)
+clusters <- hclust(iris_dist)
+plot(clusters)
+```
+
+4b. Looking at the display, the optimal clustering threshold I see is 2 clusters, since the height of the 2 clusters is greatest (between 7 and 4). This is interesting because the actual number of clusters is 3, but 2 of those 3 are super close together and easily mistaken for each other. The height for 3 clusters is a super small gap between 3.5 and 4, which doesn't seem very optimal at all.
+
+4c. The `kmeans` algorithm picked up on the fact that there are 3 clusters, but the `hclust` algorithm shows that there are only 2. The composition of the 3 clusters shows that 1 is separate, and the other 2 are very close together. `hclust` doesn't distinguish between those 2 close clusters.
+
+  
+### Question 5: dbscan
+
+5a,b. Run dbscan for selected eps and report the cluster size and F-score.
+```{r}
+iris_matrix <- as.matrix(iris_data)
+for (eps in c(0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0)) {
+  clusters <- dbscan::dbscan(iris_matrix, eps)
+  metrics <- get_external_metrics(clusters$cluster, target)
+  
+  cat("eps value:", eps)
+  cat("\nCluster sizes:", as.data.frame(table(clusters$cluster))[,2])
+  print_metrics(metrics)
+  cat("\n\n")
+}
+```
+
+5c. The value of `eps` that produces the highest F-score is `1.0`, with an F-score of `0.75`.
+
+5d. This is an interesting result, since this value of `eps` actually only recognizes 2 clusters instead of the 3 that are actually present. Other `eps` values experimented with different numbers of clusters, and a few had 3 clusters but not a high enough F-score. A recall value of `1` means that there were no false negatives identified with `eps=1`, which is interesting and a bit worrying to me.
+
+
+### Question 6: swiss
+
+
+```{r}
+swiss_data <- subset(datasets::swiss, select=c(1,2,3,4))
+clusters <- kmeans(swiss_data, 2, nstart = 5)
+protestant = names(which(clusters$cluster == 1))
+catholic = names(which(clusters$cluster == 2))
+```
+
+A list of the Swiss cities that are predominantly Protestant:
+```{r}
+protestant
+```
+
+A list of the Swiss cities that are predominantly Catholic:
+```{r}
+catholic
+```
